@@ -9,6 +9,7 @@
 ## ✨ 特性
 
 - **OpenAI 兼容 API** — 直接对接任何支持 OpenAI API 的客户端
+- **🎨 内置管理后台 WebUI** — 在 `/admin` 路径访问，单页应用，无需独立部署。包含概览、Token 池、模型映射、Playground 测试、配置查看
 - **自动验证码绕过** — 内置 Captcha Provider，自动获取阿里云 TRACELESS 验证码 token，无需人工干预
 - **多账号轮换** — 支持多个 Z.AI token 逗号分隔，自动轮换
 - **失败重试** — 可配置重试次数，自动换 token 重试
@@ -85,6 +86,18 @@ curl http://localhost:8000/v1/chat/completions \
     "stream": true
   }'
 ```
+
+### 4. 管理后台
+
+浏览器访问 `http://localhost:8000/admin`，输入第一个 `AUTH_TOKEN` 登录。
+
+后台功能：
+- **📊 概览**：实时请求量、Token 消耗、Captcha Provider 状态、Top 5 调用模型
+- **🔑 Token 池**：查看 BACKUP_TOKEN 列表（含邮箱、用户ID 解析）
+- **🧠 模型**：56 个模型的映射关系，可搜索过滤
+- **🎮 Playground**：直接在后台测试任意模型
+- **⚙️ 配置**：当前生效的环境变量（敏感信息脱敏）
+- **💖 关于**：项目故事和已知缺陷
 
 ## ⚙️ 环境变量
 

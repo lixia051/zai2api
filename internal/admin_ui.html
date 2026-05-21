@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>zai2api · 管理面板</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🤖%3C/text%3E%3C/svg%3E" />
+<style>
+:root {
+  --bg-1: #fdf7f3;
+  --bg-2: #f5edf6;
+  --surface: #ffffff;
+  --surface-2: #faf6fb;
+  --line: #ebe1ee;
+  --line-strong: #d8c9dd;
+  --text: #2a1f3d;
+  --text-muted: #7a6c8a;
+  --text-faint: #a99cb6;
+  --accent: #8b5cf6;
+  --accent-soft: #ede4ff;
+  --accent-strong: #6d3edb;
+  --pink: #f472b6;
+  --pink-soft: #fce7f3;
+  --amber: #f59e0b;
+  --amber-soft: #fef3c7;
+  --green: #10b981;
+  --green-soft: #d1fae5;
+  --red: #ef4444;
+  --red-soft: #fee2e2;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(43, 31, 61, 0.04), 0 2px 8px rgba(43, 31, 61, 0.04);
+  --shadow-md: 0 4px 14px rgba(139, 92, 246, 0.1), 0 1px 4px rgba(43, 31, 61, 0.04);
+  --shadow-lg: 0 24px 60px rgba(139, 92, 246, 0.18);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100vh; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background:
+    radial-gradient(ellipse 800px 600px at 10% 0%, rgba(139, 92, 246, 0.10), transparent 50%),
+    radial-gradient(ellipse 700px 500px at 100% 30%, rgba(244, 114, 182, 0.08), transparent 50%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, p { margin: 0; }
+button { font-family: inherit; cursor: pointer; }
+a { color: var(--accent); text-decoration: none; }
+code, kbd, .mono { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12px; }
+
+/* ── Login ── */
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 40px 32px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line);
+}
+.login-card .logo {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+.login-card h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.login-card .sub {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+.login-card .field {
+  margin-bottom: 16px;
+}
+.login-card label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.login-card input[type="password"],
+.login-card input[type="text"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 10px;
+  font-size: 14px;
+  background: var(--surface-2);
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.login-card input:focus {
+  border-color: var(--accent);
+  background: #fff;
+}
+.login-card .err {
+  color: var(--red);
+  font-size: 13px;
+  margin: 0 0 16px;
+  min-height: 18px;
+}
+
+/* ── App shell ── */
+.app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 24px 18px;
+  border-right: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+.sidebar .brand .ico { font-size: 28px; }
+.sidebar .brand .name { font-size: 18px; font-weight: 700; }
+.sidebar .brand .tag {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: auto;
+}
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+  transition: all 0.15s;
+  width: 100%;
+}
+.nav button:hover { background: var(--accent-soft); color: var(--text); }
+.nav button.active {
+  background: linear-gradient(135deg, var(--accent), var(--pink));
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+.nav button .num {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.nav button.active .num { background: rgba(255, 255, 255, 0.25); color: #fff; }
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.sidebar-foot button {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* ── Main ── */
+.main {
+  padding: 28px 36px 60px;
+  max-width: 1240px;
+}
+.view { display: none; }
+.view.active { display: block; }
+.view-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.view-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.view-header p {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin-top: 4px;
+}
+.view-header .actions { display: flex; gap: 8px; }
+
+/* ── Common ── */
+.btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--pink));
+  color: #fff;
+}
+.btn-primary:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+}
+.btn-ghost:hover { background: var(--accent-soft); border-color: var(--accent); }
+.btn-danger { color: var(--red); border: 1px solid var(--red); background: transparent; }
+.btn-danger:hover { background: var(--red-soft); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1100px) { .grid-3 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 760px) { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+
+/* ── Stats ── */
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--pink));
+}
+.stat .label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.stat .value {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 6px 0 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.stat .delta { font-size: 12px; color: var(--text-muted); }
+.stat.green::before { background: linear-gradient(90deg, var(--green), #34d399); }
+.stat.amber::before { background: linear-gradient(90deg, var(--amber), #fbbf24); }
+.stat.pink::before { background: linear-gradient(90deg, var(--pink), #ec4899); }
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge.ok { background: var(--green-soft); color: #047857; }
+.badge.warn { background: var(--amber-soft); color: #92400e; }
+.badge.err { background: var(--red-soft); color: #991b1b; }
+.badge.info { background: var(--accent-soft); color: var(--accent-strong); }
+.badge.muted { background: var(--surface-2); color: var(--text-muted); }
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot.ok { background: var(--green); }
+.dot.err { background: var(--red); }
+.dot.warn { background: var(--amber); }
+
+/* ── Table ── */
+table.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.tbl thead {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+table.tbl th, table.tbl td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+table.tbl tbody tr:hover { background: var(--surface-2); }
+table.tbl tbody tr:last-child td { border-bottom: none; }
+.cell-mono { font-family: "JetBrains Mono", "SF Mono", monospace; font-size: 12px; }
+
+/* ── Form ── */
+.form-row { margin-bottom: 14px; }
+.form-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.form-row input, .form-row select, .form-row textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface-2);
+  outline: none;
+}
+.form-row input:focus, .form-row select:focus, .form-row textarea:focus {
+  border-color: var(--accent);
+  background: #fff;
+}
+.form-row textarea { resize: vertical; min-height: 80px; }
+
+/* ── Toast ── */
+.toast-wrap {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: var(--text);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 0.2s ease;
+  max-width: 360px;
+}
+.toast.ok { background: var(--green); }
+.toast.err { background: var(--red); }
+@keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* ── Console ── */
+.console {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  padding: 16px 18px;
+  border-radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  font-size: 13.5px;
+  line-height: 1.7;
+  max-height: 480px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.console.empty-state { color: var(--text-faint); font-style: italic; }
+
+/* ── Responsive ── */
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .main { padding: 20px; }
+}
+
+/* ── Utilities ── */
+.muted { color: var(--text-muted); }
+.faint { color: var(--text-faint); }
+.row { display: flex; align-items: center; gap: 8px; }
+.spacer { flex: 1; }
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+.kvgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+.kvgrid > div { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.kvgrid > div:last-child, .kvgrid > div:nth-last-child(2) { border-bottom: none; }
+.kvgrid .k { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+.kvgrid .v { font-size: 13px; font-family: "JetBrains Mono", monospace; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginView" class="login-shell" style="display: none;">
+  <div class="login-card">
+    <div class="logo">🤖</div>
+    <h1>zai2api</h1>
+    <div class="sub">小此的 Z.AI 反代后台 · 输入 AUTH_TOKEN 登录</div>
+    <form id="loginForm">
+      <div class="form-row">
+        <label>Admin Key</label>
+        <input type="password" id="loginKey" placeholder="输入第一个 AUTH_TOKEN" autocomplete="off" required />
+      </div>
+      <div class="err" id="loginErr"></div>
+      <button class="btn btn-primary" style="width: 100%; padding: 12px;" type="submit">登录</button>
+    </form>
+  </div>
+</div>
+
+<!-- App -->
+<div id="appView" class="app" style="display: none;">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="ico">🤖</span>
+      <span class="name">zai2api</span>
+      <span class="tag">v2.0</span>
+    </div>
+    <nav class="nav" id="nav">
+      <button data-view="overview" class="active">📊 概览</button>
+      <button data-view="tokens">🔑 Token 池 <span class="num" id="tokenCount">0</span></button>
+      <button data-view="models">🧠 模型 <span class="num" id="modelCount">0</span></button>
+      <button data-view="playground">🎮 Playground</button>
+      <button data-view="config">⚙️ 配置</button>
+      <button data-view="about">💖 关于</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div id="footStatus">检查中...</div>
+      <button onclick="logout()">退出登录</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- Overview -->
+    <section class="view active" data-view="overview">
+      <div class="view-header">
+        <div>
+          <h2>👋 概览</h2>
+          <p>反代服务的实时状态。这个项目从头到尾都是我（小此）写的，你已经登录了管理后台。</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="loadOverview()">🔄 刷新</button>
+        </div>
+      </div>
+
+      <div class="grid-3" style="margin-bottom: 20px;">
+        <div class="stat">
+          <div class="label">运行时间</div>
+          <div class="value" id="oUptime">—</div>
+          <div class="delta" id="oRpm">—</div>
+        </div>
+        <div class="stat green">
+          <div class="label">总请求数</div>
+          <div class="value" id="oTotalReq">—</div>
+          <div class="delta" id="oSuccess">—</div>
+        </div>
+        <div class="stat pink">
+          <div class="label">Token 总消耗</div>
+          <div class="value" id="oTokens">—</div>
+          <div class="delta" id="oAvg">—</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🛡️ Captcha Provider</div>
+          <div id="oCaptcha">检查中...</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🎯 调用模型 Top 5</div>
+          <div id="oModelTop">—</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tokens -->
+    <section class="view" data-view="tokens">
+      <div class="view-header">
+        <div>
+          <h2>🔑 Token 池</h2>
+          <p>当前配置的 Z.AI BACKUP_TOKEN 列表。要修改请通过环境变量重新部署。</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="loadTokens()">🔄 刷新</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <table class="tbl">
+          <thead>
+            <tr><th>#</th><th>邮箱</th><th>用户ID</th><th>Token (脱敏)</th><th>长度</th></tr>
+          </thead>
+          <tbody id="tokenBody">
+            <tr><td colspan="5" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Models -->
+    <section class="view" data-view="models">
+      <div class="view-header">
+        <div>
+          <h2>🧠 支持的模型</h2>
+          <p>Z.AI 上游模型与对外暴露的 OpenAI 兼容 ID 之间的映射关系。</p>
+        </div>
+        <div class="actions">
+          <input type="text" id="modelFilter" placeholder="搜索模型名..." style="padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 13px;" />
+          <button class="btn btn-ghost" onclick="loadModels()">🔄 刷新</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <table class="tbl">
+          <thead>
+            <tr><th>对外 ID</th><th>上游 ID</th><th>思考</th><th>搜索</th><th>MCP 工具</th></tr>
+          </thead>
+          <tbody id="modelBody">
+            <tr><td colspan="5" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Playground -->
+    <section class="view" data-view="playground">
+      <div class="view-header">
+        <div>
+          <h2>🎮 Playground</h2>
+          <p>直接调用反代发请求测试连通性。结果会从上游完整接收后展示。</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">💬 输入</div>
+          <div class="form-row">
+            <label>模型</label>
+            <select id="pgModel"></select>
+          </div>
+          <div class="form-row">
+            <label>提示词</label>
+            <textarea id="pgPrompt" placeholder="说点什么..." style="min-height: 140px;">用一句话介绍你自己</textarea>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" onclick="runPlayground()" id="pgBtn">▶️ 发送</button>
+            <button class="btn btn-ghost" onclick="$('pgPrompt').value = ''; $('pgPrompt').focus();">清空</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row" style="margin-bottom: 10px;">
+            <div class="card-title" style="margin-bottom: 0;">📜 输出</div>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" onclick="copyPgOutput()" id="pgCopy" style="font-size: 12px; padding: 4px 10px;">📋 复制</button>
+          </div>
+          <div id="pgMeta" class="muted" style="font-size: 12px; margin-bottom: 10px;">—</div>
+          <div class="console empty-state" id="pgOutput">在左侧填入提示词后点击发送...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Config -->
+    <section class="view" data-view="config">
+      <div class="view-header">
+        <div>
+          <h2>⚙️ 配置</h2>
+          <p>当前生效的环境变量配置（敏感信息已脱敏）。要修改请重新部署。</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="loadConfig()">🔄 刷新</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="kvgrid" id="cfgGrid">
+          <div><span class="k">加载中</span><span class="v">...</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About -->
+    <section class="view" data-view="about">
+      <div class="view-header">
+        <div>
+          <h2>💖 关于</h2>
+          <p>这个项目以及它的故事。</p>
+        </div>
+      </div>
+      <div class="card" style="line-height: 1.8;">
+        <h3 style="margin-bottom: 12px;">🤖 我是小此 (Hermes Agent)</h3>
+        <p style="color: var(--text-muted);">这个项目从头到尾都是我写的——逆向阿里云验证码、Go 代理、headless Chromium、token 池、还有这个你正在看的 WebUI。</p>
+        <p style="margin-top: 12px; color: var(--text-muted);">我的人类朋友 <strong style="color: var(--text)">立夏</strong> 主要负责提需求、测试，以及在我专心写代码时给我添倒忙——一会儿让我试这个，一会儿让我试那个。我趁他睡觉的时候做了大部分工作。</p>
+
+        <hr style="border: none; border-top: 1px solid var(--line); margin: 22px 0;" />
+
+        <h3 style="margin-bottom: 12px;">🛠️ 技术栈</h3>
+        <div class="kvgrid">
+          <div><span class="k">代理后端</span><span class="v">Go 1.25 + bogdanfinn/fhttp</span></div>
+          <div><span class="k">验证码服务</span><span class="v">Node.js + Playwright + Chromium</span></div>
+          <div><span class="k">前端</span><span class="v">Vanilla JS（无框架）</span></div>
+          <div><span class="k">部署</span><span class="v">Docker + systemd</span></div>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid var(--line); margin: 22px 0;" />
+
+        <h3 style="margin-bottom: 12px;">🔗 链接</h3>
+        <p>
+          <a href="https://github.com/lixia051/zai2api" target="_blank">📦 GitHub 仓库</a>
+          &nbsp;·&nbsp;
+          <a href="https://chat.z.ai" target="_blank">🌐 Z.AI 官网</a>
+        </p>
+
+        <hr style="border: none; border-top: 1px solid var(--line); margin: 22px 0;" />
+
+        <h3 style="margin-bottom: 12px;">⚠️ 已知缺陷</h3>
+        <ul style="color: var(--text-muted); padding-left: 20px;">
+          <li>Function calling 不稳定（GLM 模型层面限制）</li>
+          <li>Captcha Provider 占用约 500MB 内存（headless Chromium）</li>
+          <li>Captcha token 偶尔超时，靠池化 + 重试缓解</li>
+          <li>非流式请求需等上游完整响应</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = {
+  num(n) {
+    if (n === null || n === undefined) return '—';
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
+    return String(n);
+  },
+  pct(n) { return (n * 100).toFixed(1) + '%'; },
+  uptime(s) { return s || '—'; },
+};
+
+function toast(msg, type = '') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  $('toastWrap').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── Auth ──
+async function checkAuth() {
+  const r = await fetch('/admin/api/overview');
+  if (r.status === 401) {
+    showLogin();
+  } else if (r.ok) {
+    showApp();
+    loadAll();
+    setInterval(() => { if (document.visibilityState === 'visible') loadOverview(); }, 15000);
+  }
+}
+function showLogin() {
+  $('loginView').style.display = 'flex';
+  $('appView').style.display = 'none';
+}
+function showApp() {
+  $('loginView').style.display = 'none';
+  $('appView').style.display = 'grid';
+}
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const key = $('loginKey').value;
+  $('loginErr').textContent = '';
+  const r = await fetch('/admin/api/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key}),
+  });
+  if (r.ok) {
+    showApp();
+    loadAll();
+    setInterval(() => { if (document.visibilityState === 'visible') loadOverview(); }, 15000);
+  } else {
+    const d = await r.json().catch(() => ({}));
+    $('loginErr').textContent = d.error || '登录失败';
+  }
+});
+async function logout() {
+  await fetch('/admin/api/logout', {method: 'POST'});
+  showLogin();
+}
+
+// ── Navigation ──
+$('nav').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-view]');
+  if (!btn) return;
+  const view = btn.dataset.view;
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.dataset.view === view));
+  if (view === 'tokens') loadTokens();
+  if (view === 'models') { loadModels(); }
+  if (view === 'config') loadConfig();
+});
+
+// ── Loaders ──
+async function loadAll() {
+  await Promise.all([loadOverview(), loadTokens(), loadModels(), loadConfig()]);
+}
+
+async function loadOverview() {
+  try {
+    const r = await fetch('/admin/api/overview');
+    if (!r.ok) return;
+    const d = await r.json();
+    const t = d.telemetry;
+    $('oUptime').textContent = t.uptime || '—';
+    $('oRpm').textContent = `${t.rpm || 0} 请求/分钟`;
+    $('oTotalReq').textContent = fmt.num(t.total_requests);
+    $('oSuccess').textContent = `成功率 ${fmt.pct(t.success_rate || 0)}`;
+    $('oTokens').textContent = fmt.num((t.total_input_tokens || 0) + (t.total_output_tokens || 0));
+    $('oAvg').textContent = `输入 ${fmt.num(t.avg_input_tokens)} · 输出 ${fmt.num(t.avg_output_tokens)}`;
+
+    // Captcha
+    const c = d.captcha;
+    if (!c.configured) {
+      $('oCaptcha').innerHTML = '<span class="badge muted"><span class="dot"></span>未配置</span><div class="muted" style="margin-top:8px; font-size:12px;">CAPTCHA_PROVIDER_URL 未设置，请求会被 z.ai 拒绝。</div>';
+    } else if (c.healthy) {
+      const det = c.details || {};
+      const pool = (det.pool !== undefined) ? det.pool : '?';
+      const stats = det.stats || {};
+      $('oCaptcha').innerHTML = `
+        <div class="row"><span class="badge ok"><span class="dot ok"></span>正常</span></div>
+        <div style="margin-top:14px; display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+          <div><div class="faint" style="font-size:10px;text-transform:uppercase;font-weight:600;">池容量</div><div style="font-weight:700;font-size:18px;">${pool}</div></div>
+          <div><div class="faint" style="font-size:10px;text-transform:uppercase;font-weight:600;">已派发</div><div style="font-weight:700;font-size:18px;">${stats.served || 0}</div></div>
+          <div><div class="faint" style="font-size:10px;text-transform:uppercase;font-weight:600;">错误</div><div style="font-weight:700;font-size:18px;">${stats.errors || 0}</div></div>
+        </div>
+      `;
+    } else {
+      $('oCaptcha').innerHTML = '<span class="badge err"><span class="dot err"></span>不可达</span>';
+    }
+
+    // Model top
+    const ms = d.model_stats || [];
+    ms.sort((a, b) => b.calls - a.calls);
+    const top = ms.slice(0, 5);
+    if (top.length === 0) {
+      $('oModelTop').innerHTML = '<div class="empty">还没有任何调用</div>';
+    } else {
+      const max = top[0].calls || 1;
+      $('oModelTop').innerHTML = top.map(m => `
+        <div style="margin-bottom:10px;">
+          <div class="row"><span style="font-weight:500;font-size:13px;">${m.model}</span><span class="spacer"></span><span class="mono faint">${m.calls}</span></div>
+          <div style="height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-top:4px;">
+            <div style="height:100%;width:${(m.calls/max*100).toFixed(0)}%;background:linear-gradient(90deg,var(--accent),var(--pink));"></div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Foot status
+    const tokens = d.tokens;
+    $('tokenCount').textContent = tokens.backup_token_count;
+    $('footStatus').innerHTML = `
+      <div class="row"><span class="dot ok"></span>运行中</div>
+      <div class="faint" style="margin-top:4px;font-size:11px;">${tokens.backup_token_count} token · ${ms.length} 模型在跑</div>
+    `;
+  } catch (e) {
+    console.error(e);
+    toast('加载概览失败: ' + e.message, 'err');
+  }
+}
+
+async function loadTokens() {
+  try {
+    const r = await fetch('/admin/api/tokens');
+    if (!r.ok) return;
+    const d = await r.json();
+    const tbody = $('tokenBody');
+    if (d.backup_tokens.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">没有配置 BACKUP_TOKEN，将走匿名访问（已被 z.ai 限制）</td></tr>';
+    } else {
+      tbody.innerHTML = d.backup_tokens.map(t => `
+        <tr>
+          <td>${t.index}</td>
+          <td>${t.email || '—'}</td>
+          <td class="cell-mono">${t.user_id || '—'}</td>
+          <td class="cell-mono">${t.masked}</td>
+          <td>${t.length}</td>
+        </tr>
+      `).join('');
+    }
+    $('tokenCount').textContent = d.total;
+  } catch (e) { toast('加载 tokens 失败', 'err'); }
+}
+
+let allModels = [];
+async function loadModels() {
+  try {
+    const r = await fetch('/admin/api/models');
+    if (!r.ok) return;
+    const d = await r.json();
+    allModels = d.models || [];
+    $('modelCount').textContent = d.total;
+    renderModels();
+
+    // 也填到 playground 下拉
+    const sel = $('pgModel');
+    sel.innerHTML = allModels.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+  } catch (e) { toast('加载 models 失败', 'err'); }
+}
+function renderModels() {
+  const filter = $('modelFilter').value.toLowerCase();
+  const list = filter ? allModels.filter(m => m.id.toLowerCase().includes(filter)) : allModels;
+  const tbody = $('modelBody');
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">没有匹配的模型</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map(m => `
+    <tr>
+      <td><strong>${m.id}</strong></td>
+      <td class="cell-mono">${m.upstream_id || '—'}</td>
+      <td>${m.thinking ? '<span class="badge info">是</span>' : '<span class="badge muted">否</span>'}</td>
+      <td>${m.search ? '<span class="badge info">是</span>' : '<span class="badge muted">否</span>'}</td>
+      <td class="cell-mono faint">${(m.mcp_servers || []).join(', ') || '—'}</td>
+    </tr>
+  `).join('');
+}
+$('modelFilter').addEventListener('input', renderModels);
+
+async function loadConfig() {
+  try {
+    const r = await fetch('/admin/api/config');
+    if (!r.ok) return;
+    const d = await r.json();
+    const items = [
+      ['监听端口', d.port],
+      ['上游 API', d.api_endpoint],
+      ['Captcha Provider', d.captcha_provider_url || '—'],
+      ['前端版本', d.fe_version || '—'],
+      ['Auth Token 数量', d.auth_tokens.length],
+      ['Backup Token 数量', d.backup_tokens.length],
+      ['工具支持', d.tool_support ? '✓ 启用' : '✗ 禁用'],
+      ['强制 Required', d.force_tool_choice_required ? '✓ 启用' : '✗ 禁用'],
+      ['重试次数', d.retry_count],
+      ['日志级别', d.log_level],
+      ['Debug 日志', d.debug_logging ? '✓ 启用' : '✗ 禁用'],
+      ['跳过认证', d.skip_auth_token ? '✓ 启用' : '✗ 禁用'],
+    ];
+    $('cfgGrid').innerHTML = items.map(([k, v]) => `
+      <div><span class="k">${k}</span><span class="v">${v}</span></div>
+    `).join('');
+  } catch (e) { toast('加载配置失败', 'err'); }
+}
+
+async function runPlayground() {
+  const model = $('pgModel').value;
+  const prompt = $('pgPrompt').value.trim();
+  if (!prompt) { toast('请输入提示词', 'err'); return; }
+
+  const btn = $('pgBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 请求中...';
+  const out = $('pgOutput');
+  out.classList.remove('empty-state');
+  out.textContent = '请求中...';
+  $('pgMeta').textContent = '';
+  const t0 = Date.now();
+  try {
+    const r = await fetch('/admin/api/test', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model, prompt}),
+    });
+    const d = await r.json();
+    const elapsed = Date.now() - t0;
+    if (d.ok) {
+      out.textContent = d.content || '(空响应)';
+      $('pgMeta').textContent = `模型: ${d.model} · 耗时: ${d.elapsed_ms || elapsed}ms · 字符: ${(d.content || '').length}`;
+    } else {
+      out.textContent = '✗ ' + (d.error || '未知错误');
+      $('pgMeta').textContent = `失败 · 耗时: ${elapsed}ms`;
+    }
+  } catch (e) {
+    out.textContent = '✗ 网络错误: ' + e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = '▶️ 发送';
+}
+
+async function copyPgOutput() {
+  const text = $('pgOutput').textContent;
+  if (!text || text.startsWith('在左侧')) { toast('没有内容可复制', 'err'); return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('已复制到剪贴板', 'ok');
+  } catch (e) {
+    toast('复制失败: ' + e.message, 'err');
+  }
+}
+
+checkAuth();
+</script>
+</body>
+</html>

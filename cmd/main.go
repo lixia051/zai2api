@@ -97,6 +97,18 @@ func main() {
 	http.HandleFunc("/", corsMiddleware(loggingMiddleware(handleRoot)))
 	http.HandleFunc("/v1/models", corsMiddleware(loggingMiddleware(internal.HandleModels)))
 	http.HandleFunc("/v1/chat/completions", corsMiddleware(loggingMiddleware(internal.HandleChatCompletions)))
+
+	// Admin Web UI
+	http.HandleFunc("/admin", corsMiddleware(loggingMiddleware(internal.HandleAdminUI)))
+	http.HandleFunc("/admin/", corsMiddleware(loggingMiddleware(internal.HandleAdminUI)))
+	http.HandleFunc("/admin/api/login", corsMiddleware(loggingMiddleware(internal.HandleAdminLogin)))
+	http.HandleFunc("/admin/api/logout", corsMiddleware(loggingMiddleware(internal.HandleAdminLogout)))
+	http.HandleFunc("/admin/api/overview", corsMiddleware(loggingMiddleware(internal.HandleAdminOverview)))
+	http.HandleFunc("/admin/api/config", corsMiddleware(loggingMiddleware(internal.HandleAdminConfig)))
+	http.HandleFunc("/admin/api/tokens", corsMiddleware(loggingMiddleware(internal.HandleAdminTokens)))
+	http.HandleFunc("/admin/api/models", corsMiddleware(loggingMiddleware(internal.HandleAdminModels)))
+	http.HandleFunc("/admin/api/test", corsMiddleware(loggingMiddleware(internal.HandleAdminTestModel)))
+
 	addr := ":" + internal.Cfg.Port
 	internal.LogInfo("Server starting on %s", addr)
 	internal.LogInfo("API docs available at http://localhost:%s/v1/models", internal.Cfg.Port)
