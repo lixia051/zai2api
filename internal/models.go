@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -310,6 +311,10 @@ type ModelInfo struct {
 var searchRefPattern = regexp.MustCompile(`【turn\d+search(\d+)】`)
 var searchRefPrefixPattern = regexp.MustCompile(`【(t(u(r(n(\d+(s(e(a(r(c(h(\d+)?)?)?)?)?)?)?)?)?)?)?)?$`)
 
+// GLM-5/5.1 改用 ChatGPT 风格的 【N†source】 / 【N†...】 标记，N 是 search result 的 1-based index
+var searchRefSourcePattern = regexp.MustCompile(`【(\d+)†[^】]*】`)
+var searchRefSourcePrefixPattern = regexp.MustCompile(`【\d*(†[^】]*)?$`)
+
 type SearchResult struct {
 	Title string `json:"title"`
 	URL   string `json:"url"`
@@ -349,11 +354,31 @@ func (f *SearchRefFilter) Process(content string) string {
 		return ""
 	}
 
+	// 先处理 z.ai 自有的 【turnNsearchM】 -> 用 ref_id 查 URL
 	content = searchRefPattern.ReplaceAllStringFunc(content, func(match string) string {
 		runes := []rune(match)
 		refID := string(runes[1 : len(runes)-1])
 		if result, ok := f.searchResults[refID]; ok {
 			return fmt.Sprintf(`[\[%d\]](%s)`, result.Index, result.URL)
+		}
+		return ""
+	})
+
+	// 再处理 GLM-5/5.1 的 ChatGPT 风格 【N†source】 -> 按 Index 查 URL
+	content = searchRefSourcePattern.ReplaceAllStringFunc(content, func(match string) string {
+		sub := searchRefSourcePattern.FindStringSubmatch(match)
+		if len(sub) < 2 {
+			return ""
+		}
+		idx, err := strconv.Atoi(sub[1])
+		if err != nil {
+			return ""
+		}
+		// searchResults 是 map[refID] -> SearchResult，按 Index 找
+		for _, r := range f.searchResults {
+			if r.Index == idx {
+				return fmt.Sprintf(`[\[%d\]](%s)`, r.Index, r.URL)
+			}
 		}
 		return ""
 	})
@@ -367,9 +392,10 @@ func (f *SearchRefFilter) Process(content string) string {
 		maxPrefixLen = len(content)
 	}
 
+	// 检查末尾是否是不完整的引用前缀，缓冲到下次
 	for i := 1; i <= maxPrefixLen; i++ {
 		suffix := content[len(content)-i:]
-		if searchRefPrefixPattern.MatchString(suffix) {
+		if searchRefPrefixPattern.MatchString(suffix) || searchRefSourcePrefixPattern.MatchString(suffix) {
 			f.buffer = suffix
 			return content[:len(content)-i]
 		}
@@ -387,6 +413,22 @@ func (f *SearchRefFilter) Flush() string {
 			refID := string(runes[1 : len(runes)-1])
 			if r, ok := f.searchResults[refID]; ok {
 				return fmt.Sprintf(`[\[%d\]](%s)`, r.Index, r.URL)
+			}
+			return ""
+		})
+		result = searchRefSourcePattern.ReplaceAllStringFunc(result, func(match string) string {
+			sub := searchRefSourcePattern.FindStringSubmatch(match)
+			if len(sub) < 2 {
+				return ""
+			}
+			idx, err := strconv.Atoi(sub[1])
+			if err != nil {
+				return ""
+			}
+			for _, r := range f.searchResults {
+				if r.Index == idx {
+					return fmt.Sprintf(`[\[%d\]](%s)`, r.Index, r.URL)
+				}
 			}
 			return ""
 		})
