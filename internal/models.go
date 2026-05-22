@@ -46,9 +46,10 @@ var ModelList = []string{
 	"0808-360B-DR",
 }
 
-func ParseModelName(model string) (baseModel string, enableThinking bool, enableSearch bool) {
+func ParseModelName(model string) (baseModel string, enableThinking bool, enableSearch bool, enableAgent bool) {
 	enableThinking = false
 	enableSearch = false
+	enableAgent = false
 	baseModel = model
 	for {
 		if strings.HasSuffix(baseModel, "-thinking") {
@@ -57,26 +58,35 @@ func ParseModelName(model string) (baseModel string, enableThinking bool, enable
 		} else if strings.HasSuffix(baseModel, "-search") {
 			enableSearch = true
 			baseModel = strings.TrimSuffix(baseModel, "-search")
+		} else if strings.HasSuffix(baseModel, "-agent") {
+			enableAgent = true
+			baseModel = strings.TrimSuffix(baseModel, "-agent")
 		} else {
 			break
 		}
 	}
 
-	return baseModel, enableThinking, enableSearch
+	return baseModel, enableThinking, enableSearch, enableAgent
 }
 
 func IsThinkingModel(model string) bool {
-	_, enableThinking, _ := ParseModelName(model)
+	_, enableThinking, _, _ := ParseModelName(model)
 	return enableThinking
 }
 
 func IsSearchModel(model string) bool {
-	_, _, enableSearch := ParseModelName(model)
+	_, _, enableSearch, _ := ParseModelName(model)
 	return enableSearch
 }
 
+// IsAgentModel 是否为 -agent 后缀模型（启用 z.ai Agent 模式）
+func IsAgentModel(model string) bool {
+	_, _, _, enableAgent := ParseModelName(model)
+	return enableAgent
+}
+
 func GetTargetModel(model string) string {
-	baseModel, _, _ := ParseModelName(model)
+	baseModel, _, _, _ := ParseModelName(model)
 	if target, ok := BaseModelMapping[baseModel]; ok {
 		return target
 	}
@@ -84,7 +94,7 @@ func GetTargetModel(model string) string {
 }
 
 func IsValidModel(model string) bool {
-	baseModel, _, _ := ParseModelName(model)
+	baseModel, _, _, _ := ParseModelName(model)
 	if _, ok := BaseModelMapping[baseModel]; ok {
 		return true
 	}

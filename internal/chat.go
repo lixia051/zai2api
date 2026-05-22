@@ -264,11 +264,16 @@ func makeUpstreamRequest(token string, messages []Message, model string, imageUR
 	requestID := uuid.New().String()
 	userMsgID := uuid.New().String()
 
+	// Agent 模式启用条件：
+	// 1) 客户端用了 `-agent` 后缀模型（显式选择） — 推荐方式
+	// 2) 客户端传了 tools 字段且 USE_AGENT_MODE=true（兼容方式，但 z.ai agent 不返回 tool_calls）
+	// 用户带 -agent 后缀就一定启用 agent 模式（不依赖 tools）
+	useAgent := IsAgentModel(model) || (hasTools && Cfg.UseAgentMode)
+
 	// Agent 模式：先创建 z.ai 颁发的 chat_id 并初始化 workspace
 	// 否则 chat_completions 会返回 INTERNAL_ERROR
-	if hasTools && Cfg.UseAgentMode {
+	if useAgent {
 		latestUC := extractLatestUserContent(messages)
-		// 模型映射的 upstream id 还没算出来，先用 model 原值
 		session, err := PrepareAgentSession(token, latestUC, model)
 		if err != nil {
 			LogWarn("[AgentMode] PrepareAgentSession failed: %v", err)
@@ -383,15 +388,13 @@ func makeUpstreamRequest(token string, messages []Message, model string, imageUR
 		upstreamMessages = append(upstreamMessages, msg.ToUpstreamMessage(urlToFileID))
 	}
 
-	// 当客户端传了 tools 时启用 z.ai Agent 模式（flags=["general_agent"]）。
+	// 当客户端带 -agent 后缀模型 OR 传了 tools 时启用 z.ai Agent 模式（flags=["general_agent"]）。
 	// 这是 z.ai 官网"Agent 模式"切换器在做的事情，能让模型真正调用内置工具。
-	// 控制开关：USE_AGENT_MODE=true（默认）。如果想退回 prompt injection 模式可以关掉。
-	useAgentForTools := hasTools && Cfg.UseAgentMode
 	flags := []string{}
 	previewMode := false
 	imageGen := true
 	webSearch := true
-	if useAgentForTools {
+	if useAgent {
 		flags = append(flags, "general_agent")
 		previewMode = true
 		imageGen = false
@@ -421,7 +424,7 @@ func makeUpstreamRequest(token string, messages []Message, model string, imageUR
 	}
 
 	// Agent 模式必填字段
-	if useAgentForTools {
+	if useAgent {
 		body["current_user_message_id"] = userMsgID
 		body["current_user_message_parent_id"] = nil
 		body["background_tasks"] = map[string]bool{

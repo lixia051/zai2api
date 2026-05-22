@@ -92,7 +92,7 @@ func initBuiltinMappings() {
 	registerBuiltinModel("GLM-4.1V-Thinking-FlashX", "GLM-4.1V-Thinking-FlashX", "GLM-4.1V-Thinking-FlashX", true, false, true, []string{"advanced-search", "vlm-image-search", "vlm-image-recognition", "vlm-image-processing"})
 }
 func GetModelMapping(modelID string) (ModelMapping, bool) {
-	baseModel, enableThinking, enableSearch := ParseModelName(modelID)
+	baseModel, enableThinking, enableSearch, _ := ParseModelName(modelID)
 	mappingsLock.RLock()
 	defer mappingsLock.RUnlock()
 	if mapping, ok := modelMappings[baseModel]; ok {
@@ -220,18 +220,23 @@ func updateDynamicMappings(models []ZAIModel) {
 }
 
 // modelSuffixes 可用的后缀组合
+// -agent 后缀会启用 z.ai Agent 模式（模型可调用内置工具如 web_search/code_runner 等）
 var modelSuffixes = []string{
 	"-thinking",        // 思考
 	"-search",          // 搜索
 	"-thinking-search", // 思考+搜索
+	"-agent",           // Agent 模式（z.ai 内置工具）
+	"-thinking-agent",  // 思考+Agent
 }
 
-// isBaseSuffixModel 判断模型是否为基础模型（不含 -Thinking/-Search 后缀）从而可以生成后缀组合
+// isBaseSuffixModel 判断模型是否为基础模型（不含 -Thinking/-Search/-Agent 后缀）从而可以生成后缀组合
 func isBaseSuffixModel(modelID string) bool {
 	idLower := strings.ToLower(modelID)
 	return !strings.HasSuffix(idLower, "-thinking") &&
 		!strings.HasSuffix(idLower, "-search") &&
-		!strings.HasSuffix(idLower, "-thinking-search")
+		!strings.HasSuffix(idLower, "-thinking-search") &&
+		!strings.HasSuffix(idLower, "-agent") &&
+		!strings.HasSuffix(idLower, "-thinking-agent")
 }
 
 // GetAvailableModels 获取所有可用模型，包括内置 + 动态 + 后缀组合
