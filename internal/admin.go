@@ -11,40 +11,35 @@ import (
 )
 
 // adminAuth 检查管理后台访问凭据。
-// 复用第一个 AUTH_TOKEN 作为管理密钥；如果 SkipAuthToken=true 则跳过。
-// 支持 Bearer header、X-Admin-Key header 或 query string ?key=xxx
+// 优先级：环境变量 AUTH_TOKEN[0] → ApiKeyManager 中的 key
+// 支持 Bearer header / X-Admin-Key header / ?key=xxx / cookie
 func adminAuth(r *http.Request) bool {
 	if Cfg.SkipAuthToken {
 		return true
 	}
-	if len(Cfg.AuthTokens) == 0 {
-		return false
+	candidates := []string{}
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+		candidates = append(candidates, strings.TrimPrefix(auth, "Bearer "))
 	}
-	expected := Cfg.AuthTokens[0]
-
-	// Bearer
-	auth := r.Header.Get("Authorization")
-	if strings.HasPrefix(auth, "Bearer ") {
-		got := strings.TrimPrefix(auth, "Bearer ")
-		if subtle.ConstantTimeCompare([]byte(got), []byte(expected)) == 1 {
-			return true
-		}
-	}
-	// X-Admin-Key
 	if k := r.Header.Get("X-Admin-Key"); k != "" {
-		if subtle.ConstantTimeCompare([]byte(k), []byte(expected)) == 1 {
-			return true
-		}
+		candidates = append(candidates, k)
 	}
-	// Query string (方便浏览器直接访问)
 	if k := r.URL.Query().Get("key"); k != "" {
-		if subtle.ConstantTimeCompare([]byte(k), []byte(expected)) == 1 {
+		candidates = append(candidates, k)
+	}
+	if c, err := r.Cookie("admin_key"); err == nil {
+		candidates = append(candidates, c.Value)
+	}
+	for _, k := range candidates {
+		if k == "" {
+			continue
+		}
+		// env-based admin key（第一个 AUTH_TOKEN）
+		if len(Cfg.AuthTokens) > 0 && subtle.ConstantTimeCompare([]byte(k), []byte(Cfg.AuthTokens[0])) == 1 {
 			return true
 		}
-	}
-	// Cookie
-	if c, err := r.Cookie("admin_key"); err == nil {
-		if subtle.ConstantTimeCompare([]byte(c.Value), []byte(expected)) == 1 {
+		// 用户管理的 key 也允许登录后台
+		if GetApiKeyManager().Validate(k) {
 			return true
 		}
 	}
@@ -76,12 +71,11 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		adminWriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
-	if len(Cfg.AuthTokens) == 0 {
-		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "no AUTH_TOKEN configured"})
-		return
-	}
-	if subtle.ConstantTimeCompare([]byte(body.Key), []byte(Cfg.AuthTokens[0])) != 1 {
-		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid key"})
+	// env AUTH_TOKEN[0] 或用户创建的 API Key 都可以登录后台
+	envOK := len(Cfg.AuthTokens) > 0 && subtle.ConstantTimeCompare([]byte(body.Key), []byte(Cfg.AuthTokens[0])) == 1
+	managedOK := GetApiKeyManager().Validate(body.Key)
+	if !envOK && !managedOK {
+		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "无效的密钥"})
 		return
 	}
 	setAdminCookie(w, body.Key)
@@ -166,9 +160,12 @@ func HandleAdminOverview(w http.ResponseWriter, r *http.Request) {
 			"multimodal_calls":    telemetry.MultimodalCalls,
 		},
 		"tokens": map[string]interface{}{
-			"auth_token_count":   len(Cfg.AuthTokens),
-			"backup_token_count": len(Cfg.BackupTokens),
-			"valid_token_count":  telemetry.ValidTokens,
+			"managed_token_count": len(GetTokenManager().ListTokens()),
+			"valid_token_count":   telemetry.ValidTokens,
+		},
+		"api_keys": map[string]interface{}{
+			"total":      len(GetApiKeyManager().List()),
+			"env_count":  len(Cfg.AuthTokens),
 		},
 		"captcha":     captchaStatus,
 		"model_stats": modelStats,
@@ -210,41 +207,23 @@ func HandleAdminConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleAdminTokens GET /admin/api/tokens
-// 返回 BACKUP_TOKEN（环境变量，只读）+ TokenManager 管理的 token（可增删）
+// 返回 TokenManager 管理的 z.ai JWT token（可增删）
 func HandleAdminTokens(w http.ResponseWriter, r *http.Request) {
 	if !adminAuth(r) {
 		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		return
 	}
 
-	// BACKUP_TOKEN（只读，来自环境变量）
-	backupTokens := make([]map[string]interface{}, 0, len(Cfg.BackupTokens))
-	for i, t := range Cfg.BackupTokens {
-		entry := map[string]interface{}{
-			"index":  i,
-			"masked": maskToken(t),
-			"length": len(t),
-			"source": "env",
-		}
-		if payload, err := DecodeJWTPayload(t); err == nil && payload != nil {
-			entry["user_id"] = payload.ID
-			entry["email"] = payload.Email
-		}
-		backupTokens = append(backupTokens, entry)
-	}
-
-	// TokenManager 管理的 token（动态可增删）
 	managed := GetTokenManager().ListTokens()
 	managedTokens := make([]map[string]interface{}, 0, len(managed))
 	for _, info := range managed {
 		entry := map[string]interface{}{
-			"token_full": info.Token, // 用于删除时的标识
+			"token_full": info.Token,
 			"masked":     maskToken(info.Token),
 			"email":      info.Email,
 			"user_id":    info.UserID,
 			"valid":      info.Valid,
 			"use_count":  info.UseCount,
-			"source":     "managed",
 		}
 		if !info.LastChecked.IsZero() {
 			entry["last_checked"] = info.LastChecked.Format(time.RFC3339)
@@ -253,10 +232,8 @@ func HandleAdminTokens(w http.ResponseWriter, r *http.Request) {
 	}
 
 	adminWriteJSON(w, http.StatusOK, map[string]interface{}{
-		"backup_tokens":  backupTokens,
-		"managed_tokens": managedTokens,
-		"total_backup":   len(backupTokens),
-		"total_managed":  len(managedTokens),
+		"tokens": managedTokens,
+		"total":  len(managedTokens),
 	})
 }
 
@@ -506,3 +483,113 @@ func (s *sseScanner) Scan() bool {
 }
 
 func (s *sseScanner) Text() string { return s.line }
+
+// ── API Key 管理 ──
+
+// HandleAdminKeysList GET /admin/api/keys
+func HandleAdminKeysList(w http.ResponseWriter, r *http.Request) {
+	if !adminAuth(r) {
+		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	keys := GetApiKeyManager().List()
+	out := make([]map[string]interface{}, 0, len(keys))
+	for _, k := range keys {
+		entry := map[string]interface{}{
+			"key":        k.Key, // 完整 key，方便复制
+			"masked":     maskApiKey(k.Key),
+			"name":       k.Name,
+			"created_at": k.CreatedAt,
+			"last_used":  k.LastUsed,
+			"use_count":  k.UseCount,
+			"enabled":    k.Enabled,
+		}
+		out = append(out, entry)
+	}
+	adminWriteJSON(w, http.StatusOK, map[string]interface{}{
+		"keys":  out,
+		"total": len(out),
+	})
+}
+
+// HandleAdminKeysCreate POST /admin/api/keys
+// body: {"name": "..."}
+func HandleAdminKeysCreate(w http.ResponseWriter, r *http.Request) {
+	if !adminAuth(r) {
+		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		adminWriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var body struct {
+		Name string `json:"name"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+	k, err := GetApiKeyManager().Create(body.Name)
+	if err != nil {
+		adminWriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	adminWriteJSON(w, http.StatusOK, map[string]interface{}{
+		"ok":         true,
+		"key":        k.Key, // 注意：完整 key 只在创建时返回一次（前端要提示用户保存）
+		"name":       k.Name,
+		"created_at": k.CreatedAt,
+	})
+}
+
+// HandleAdminKeysDelete DELETE /admin/api/keys
+// body: {"key": "..."}
+func HandleAdminKeysDelete(w http.ResponseWriter, r *http.Request) {
+	if !adminAuth(r) {
+		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	var body struct {
+		Key string `json:"key"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		adminWriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+	if err := GetApiKeyManager().Delete(body.Key); err != nil {
+		adminWriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	adminWriteJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// HandleAdminKeysToggle POST /admin/api/keys/toggle
+// body: {"key": "...", "enabled": true/false}
+func HandleAdminKeysToggle(w http.ResponseWriter, r *http.Request) {
+	if !adminAuth(r) {
+		adminWriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if r.Method != http.MethodPost {
+		adminWriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var body struct {
+		Key     string `json:"key"`
+		Enabled bool   `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		adminWriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+	if err := GetApiKeyManager().SetEnabled(body.Key, body.Enabled); err != nil {
+		adminWriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	adminWriteJSON(w, http.StatusOK, map[string]bool{"ok": true, "enabled": body.Enabled})
+}
+
+func maskApiKey(k string) string {
+	if len(k) <= 12 {
+		return strings.Repeat("*", len(k))
+	}
+	return k[:6] + "..." + k[len(k)-4:]
+}

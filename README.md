@@ -9,14 +9,14 @@
 ## ✨ 特性
 
 - **OpenAI 兼容 API** — 直接对接任何支持 OpenAI API 的客户端
-- **🎨 内置管理后台 WebUI** — 在 `/admin` 路径访问，单页应用，无需独立部署。包含概览、Token 池、模型映射、Playground 测试、配置查看
-- **自动验证码绕过** — 内置 Captcha Provider，自动获取阿里云 TRACELESS 验证码 token，无需人工干预
-- **多账号轮换** — 支持多个 Z.AI token 逗号分隔，自动轮换
-- **失败重试** — 可配置重试次数，自动换 token 重试
-- **56 个模型** — 支持 GLM-5.1、GLM-5、GLM-4.6、GLM-4.5 等全系列模型
-- **流式/非流式** — 完整支持 SSE 流式输出
-- **多模态** — 支持图片和视频输入
-- **匿名 token 池** — 无需登录也能使用（受模型限制）
+- **🎨 内置管理后台 WebUI** — 在 `/admin` 路径访问，单页应用，无需独立部署
+- **🔐 API Key 管理** — 在后台创建、启用/禁用、删除自定义 API Key（持久化），客户端用这些 key 调用反代
+- **🔑 Z.AI Token 池** — 在后台增删 Z.AI JWT token，反代自动轮换使用
+- **🤖 自动验证码绕过** — 内置 Captcha Provider，自动获取阿里云 TRACELESS 验证码 token，无需人工干预
+- **🔄 失败重试** — 可配置重试次数，自动换 token 重试
+- **🧠 56 个模型** — 支持 GLM-5.1、GLM-5、GLM-4.6、GLM-4.5 等全系列模型
+- **⚡ 流式/非流式** — 完整支持 SSE 流式输出
+- **🖼️ 多模态** — 支持图片和视频输入
 
 ## 🏗️ 架构
 
@@ -89,23 +89,24 @@ curl http://localhost:8000/v1/chat/completions \
 
 ### 4. 管理后台
 
-浏览器访问 `http://localhost:8000/admin`，输入第一个 `AUTH_TOKEN` 登录。
+浏览器访问 `http://localhost:8000/admin`，输入 `AUTH_TOKEN` 登录（也可以用后台创建的任意 API Key 登录）。
 
 后台功能：
 - **📊 概览**：实时请求量、Token 消耗、Captcha Provider 状态、Top 5 调用模型
-- **🔑 Token 池**：双层 token 管理
-  - **环境变量 BACKUP_TOKEN**：只读，重启需重新部署修改
-  - **用户管理 Token**：动态增删，持久化到 `data/tokens.txt`，支持热加载、定期验证、支持批量粘贴
+- **🔐 API Key**：创建、启用/禁用、删除自定义 API Key。这些 key 用于客户端访问反代，也可以登录后台。持久化到 `data/api_keys.json`
+- **🔑 Z.AI Token**：动态增删 Z.AI JWT token（从浏览器复制），支持批量粘贴。持久化到 `data/tokens.txt`
 - **🧠 模型**：56 个模型的映射关系，可搜索过滤
 - **🎮 Playground**：直接在后台测试任意模型
 - **⚙️ 配置**：当前生效的环境变量（敏感信息脱敏）
 - **💖 关于**：项目故事和已知缺陷
 
-> ⚠️ **持久化提醒**：要让用户管理 token 在容器重启后保留，记得挂载 `data` 目录：
+> ⚠️ **持久化提醒**：要让 API Key 和 Token 在容器重启后保留，记得挂载 `data` 目录：
 > ```bash
 > docker run -v /your/path/data:/app/data ...
 > ```
 > 参考 `deploy/zai2api.service` 里的 systemd 配置示例。
+
+> 💡 **首次部署**：环境变量 `AUTH_TOKEN` 是登录后台的"主密钥"，强烈建议设置一个。登录后从「API Key」面板创建子 key 给客户端用，方便随时禁用/删除。
 
 ## ⚙️ 环境变量
 

@@ -94,6 +94,7 @@ func main() {
 	internal.StartAnonymousTokenPool()
 	internal.StartVersionUpdater()
 	internal.StartModelFetcher()
+	internal.GetApiKeyManager().StartPeriodicSave()
 	http.HandleFunc("/", corsMiddleware(loggingMiddleware(handleRoot)))
 	http.HandleFunc("/v1/models", corsMiddleware(loggingMiddleware(internal.HandleModels)))
 	http.HandleFunc("/v1/chat/completions", corsMiddleware(loggingMiddleware(internal.HandleChatCompletions)))
@@ -120,6 +121,21 @@ func main() {
 		}
 	})))
 	http.HandleFunc("/admin/api/tokens/validate", corsMiddleware(loggingMiddleware(internal.HandleAdminTokenValidate)))
+
+	// API Keys
+	http.HandleFunc("/admin/api/keys", corsMiddleware(loggingMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			internal.HandleAdminKeysList(w, r)
+		case http.MethodPost:
+			internal.HandleAdminKeysCreate(w, r)
+		case http.MethodDelete:
+			internal.HandleAdminKeysDelete(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})))
+	http.HandleFunc("/admin/api/keys/toggle", corsMiddleware(loggingMiddleware(internal.HandleAdminKeysToggle)))
 
 	http.HandleFunc("/admin/api/models", corsMiddleware(loggingMiddleware(internal.HandleAdminModels)))
 	http.HandleFunc("/admin/api/test", corsMiddleware(loggingMiddleware(internal.HandleAdminTestModel)))

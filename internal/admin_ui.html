@@ -524,7 +524,8 @@ table.tbl tbody tr:last-child td { border-bottom: none; }
     </div>
     <nav class="nav" id="nav">
       <button data-view="overview" class="active">📊 概览</button>
-      <button data-view="tokens">🔑 Token 池 <span class="num" id="tokenCount">0</span></button>
+      <button data-view="keys">🔐 API Key <span class="num" id="keyCount">0</span></button>
+      <button data-view="tokens">🔑 Z.AI Token <span class="num" id="tokenCount">0</span></button>
       <button data-view="models">🧠 模型 <span class="num" id="modelCount">0</span></button>
       <button data-view="playground">🎮 Playground</button>
       <button data-view="config">⚙️ 配置</button>
@@ -581,12 +582,37 @@ table.tbl tbody tr:last-child td { border-bottom: none; }
       </div>
     </section>
 
+    <!-- API Keys -->
+    <section class="view" data-view="keys">
+      <div class="view-header">
+        <div>
+          <h2>🔐 API Key 管理</h2>
+          <p>客户端调用 <code>/v1/chat/completions</code> 时使用的密钥。这些 key 也可以登录本管理后台。持久化到 <code>data/api_keys.json</code>。</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="openCreateKey()">➕ 创建 Key</button>
+          <button class="btn btn-ghost" onclick="loadKeys()">🔄 刷新</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <table class="tbl">
+          <thead>
+            <tr><th>名称</th><th>Key</th><th>状态</th><th>使用次数</th><th>最后使用</th><th>创建时间</th><th>操作</th></tr>
+          </thead>
+          <tbody id="keysBody">
+            <tr><td colspan="7" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- Tokens -->
     <section class="view" data-view="tokens">
       <div class="view-header">
         <div>
-          <h2>🔑 Token 池</h2>
-          <p>Z.AI JWT Token 管理。环境变量配置的是只读的，下面"用户管理 Token"是动态可增删的，会持久化到 <code>data/tokens.txt</code>。</p>
+          <h2>🔑 Z.AI Token 池</h2>
+          <p>从 chat.z.ai 浏览器 localStorage 复制的 JWT token，反代会自动轮换使用。持久化到 <code>data/tokens.txt</code>。</p>
         </div>
         <div class="actions">
           <button class="btn btn-primary" onclick="openAddToken()">➕ 添加 Token</button>
@@ -594,26 +620,13 @@ table.tbl tbody tr:last-child td { border-bottom: none; }
         </div>
       </div>
 
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-title">🔧 用户管理 Token <span class="badge info" id="managedCount">0</span></div>
+      <div class="card">
         <table class="tbl">
           <thead>
             <tr><th>邮箱</th><th>用户ID</th><th>Token (脱敏)</th><th>状态</th><th>使用次数</th><th>操作</th></tr>
           </thead>
-          <tbody id="managedTokenBody">
-            <tr><td colspan="6" class="empty">加载中...</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <div class="card-title">🌍 环境变量 BACKUP_TOKEN <span class="badge muted" id="envCount">0</span> · 只读</div>
-        <table class="tbl">
-          <thead>
-            <tr><th>#</th><th>邮箱</th><th>用户ID</th><th>Token (脱敏)</th><th>长度</th></tr>
-          </thead>
           <tbody id="tokenBody">
-            <tr><td colspan="5" class="empty">加载中...</td></tr>
+            <tr><td colspan="6" class="empty">加载中...</td></tr>
           </tbody>
         </table>
       </div>
@@ -764,6 +777,43 @@ table.tbl tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<!-- Modal: Create API Key -->
+<div class="modal-mask" id="createKeyModal" onclick="if(event.target===this) closeCreateKey()">
+  <div class="modal">
+    <h3>➕ 创建 API Key</h3>
+    <div class="modal-sub">给这个 key 起个名字方便识别（比如"我的笔记本"、"自动化脚本"）。Key 会自动生成，类似 <code>sk-xxxxx</code>。</div>
+    <div class="form-row">
+      <label>名称</label>
+      <input type="text" id="newKeyName" placeholder="可选，留空默认为'未命名'" maxlength="64" />
+    </div>
+    <div id="createKeyErr" style="color: var(--red); font-size: 13px; min-height: 18px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCreateKey()">取消</button>
+      <button class="btn btn-primary" onclick="submitCreateKey()" id="createKeyBtn">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Show created key -->
+<div class="modal-mask" id="newKeyModal" onclick="if(event.target===this) closeNewKey()">
+  <div class="modal">
+    <h3>✅ Key 已创建</h3>
+    <div class="modal-sub">这个 key 会一直显示在列表里（明文），随时可以回来复制。但还是建议你现在就保存好。</div>
+    <div class="form-row">
+      <label>名称</label>
+      <div id="newKeyDisplayName" style="padding: 10px; background: var(--surface-2); border-radius: 8px; font-size: 14px;"></div>
+    </div>
+    <div class="form-row">
+      <label>API Key</label>
+      <div id="newKeyDisplay" style="padding: 12px; background: var(--surface-2); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; word-break: break-all; border: 1.5px dashed var(--accent);"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="copyNewKey()">📋 复制</button>
+      <button class="btn btn-ghost" onclick="closeNewKey()">关闭</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
@@ -838,13 +888,14 @@ $('nav').addEventListener('click', (e) => {
   document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b === btn));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.dataset.view === view));
   if (view === 'tokens') loadTokens();
+  if (view === 'keys') loadKeys();
   if (view === 'models') { loadModels(); }
   if (view === 'config') loadConfig();
 });
 
 // ── Loaders ──
 async function loadAll() {
-  await Promise.all([loadOverview(), loadTokens(), loadModels(), loadConfig()]);
+  await Promise.all([loadOverview(), loadKeys(), loadTokens(), loadModels(), loadConfig()]);
 }
 
 async function loadOverview() {
@@ -899,12 +950,15 @@ async function loadOverview() {
     }
 
     // Foot status
-    const tokens = d.tokens;
-    const totalTokens = (tokens.backup_token_count || 0) + (tokens.valid_token_count || 0);
-    $('tokenCount').textContent = totalTokens;
+    const tokens = d.tokens || {};
+    const apiKeys = d.api_keys || {};
+    const tokenN = tokens.managed_token_count || 0;
+    const keyN = (apiKeys.total || 0) + (apiKeys.env_count || 0);
+    $('tokenCount').textContent = tokenN;
+    $('keyCount').textContent = keyN;
     $('footStatus').innerHTML = `
       <div class="row"><span class="dot ok"></span>运行中</div>
-      <div class="faint" style="margin-top:4px;font-size:11px;">${totalTokens} token · ${ms.length} 模型在跑</div>
+      <div class="faint" style="margin-top:4px;font-size:11px;">${tokenN} z.ai token · ${keyN} api key</div>
     `;
   } catch (e) {
     console.error(e);
@@ -917,14 +971,12 @@ async function loadTokens() {
     const r = await fetch('/admin/api/tokens');
     if (!r.ok) return;
     const d = await r.json();
-
-    // Managed tokens (动态)
-    const mt = d.managed_tokens || [];
-    const mTbody = $('managedTokenBody');
-    if (mt.length === 0) {
-      mTbody.innerHTML = '<tr><td colspan="6" class="empty">还没有添加 token，点击右上角"添加 Token"开始</td></tr>';
+    const tokens = d.tokens || [];
+    const tbody = $('tokenBody');
+    if (tokens.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">还没有添加 Z.AI Token，点击右上角"添加 Token"开始</td></tr>';
     } else {
-      mTbody.innerHTML = mt.map(t => `
+      tbody.innerHTML = tokens.map(t => `
         <tr>
           <td>${escapeHtml(t.email || '—')}</td>
           <td class="cell-mono">${escapeHtml(t.user_id || '—')}</td>
@@ -938,28 +990,7 @@ async function loadTokens() {
         </tr>
       `).join('');
     }
-    $('managedCount').textContent = d.total_managed || 0;
-
-    // Backup tokens (env)
-    const bt = d.backup_tokens || [];
-    const bTbody = $('tokenBody');
-    if (bt.length === 0) {
-      bTbody.innerHTML = '<tr><td colspan="5" class="empty">未通过环境变量 BACKUP_TOKEN 配置任何 token</td></tr>';
-    } else {
-      bTbody.innerHTML = bt.map(t => `
-        <tr>
-          <td>${t.index}</td>
-          <td>${escapeHtml(t.email || '—')}</td>
-          <td class="cell-mono">${escapeHtml(t.user_id || '—')}</td>
-          <td class="cell-mono">${escapeHtml(t.masked)}</td>
-          <td>${t.length}</td>
-        </tr>
-      `).join('');
-    }
-    $('envCount').textContent = d.total_backup || 0;
-
-    // 顶部计数 = 总数
-    $('tokenCount').textContent = (d.total_backup || 0) + (d.total_managed || 0);
+    $('tokenCount').textContent = d.total || 0;
   } catch (e) { toast('加载 tokens 失败', 'err'); }
 }
 
@@ -1169,6 +1200,140 @@ async function copyPgOutput() {
   } catch (e) {
     toast('复制失败: ' + e.message, 'err');
   }
+}
+
+// ── API Keys ──
+async function loadKeys() {
+  try {
+    const r = await fetch('/admin/api/keys');
+    if (!r.ok) return;
+    const d = await r.json();
+    const keys = d.keys || [];
+    const tbody = $('keysBody');
+    if (keys.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">还没有创建 API Key，点击右上角"创建 Key"开始</td></tr>';
+    } else {
+      tbody.innerHTML = keys.map(k => `
+        <tr>
+          <td><strong>${escapeHtml(k.name)}</strong></td>
+          <td class="cell-mono"><span title="点击复制" style="cursor:pointer;" onclick="copyToClipboard('${escapeJs(k.key)}')">${escapeHtml(k.key)}</span></td>
+          <td>${k.enabled ? '<span class="badge ok">✓ 启用</span>' : '<span class="badge muted">✗ 禁用</span>'}</td>
+          <td>${k.use_count}</td>
+          <td class="faint" style="font-size:12px;">${k.last_used ? formatTime(k.last_used) : '从未'}</td>
+          <td class="faint" style="font-size:12px;">${formatTime(k.created_at)}</td>
+          <td>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px;" onclick="copyToClipboard('${escapeJs(k.key)}')">复制</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px;" onclick="toggleKey('${escapeJs(k.key)}', ${!k.enabled})">${k.enabled ? '禁用' : '启用'}</button>
+            <button class="btn btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteKey('${escapeJs(k.key)}', '${escapeJs(k.name)}')">删除</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+  } catch (e) { toast('加载 API Key 失败', 'err'); }
+}
+
+function formatTime(unix) {
+  if (!unix) return '—';
+  const d = new Date(unix * 1000);
+  const now = Date.now() / 1000;
+  const diff = now - unix;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return Math.floor(diff/60) + ' 分钟前';
+  if (diff < 86400) return Math.floor(diff/3600) + ' 小时前';
+  if (diff < 86400 * 7) return Math.floor(diff/86400) + ' 天前';
+  return d.toLocaleDateString('zh-CN');
+}
+
+function openCreateKey() {
+  $('createKeyModal').classList.add('show');
+  $('newKeyName').value = '';
+  $('createKeyErr').textContent = '';
+  setTimeout(() => $('newKeyName').focus(), 50);
+}
+function closeCreateKey() { $('createKeyModal').classList.remove('show'); }
+function closeNewKey() { $('newKeyModal').classList.remove('show'); }
+
+async function submitCreateKey() {
+  const name = $('newKeyName').value.trim();
+  const btn = $('createKeyBtn');
+  btn.disabled = true;
+  btn.textContent = '创建中...';
+  $('createKeyErr').textContent = '';
+  try {
+    const r = await fetch('/admin/api/keys', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name}),
+    });
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      closeCreateKey();
+      $('newKeyDisplayName').textContent = d.name;
+      $('newKeyDisplay').textContent = d.key;
+      window.__lastNewKey = d.key;
+      $('newKeyModal').classList.add('show');
+      loadKeys();
+      loadOverview();
+    } else {
+      $('createKeyErr').textContent = d.error || '创建失败';
+    }
+  } catch (e) {
+    $('createKeyErr').textContent = '网络错误: ' + e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = '创建';
+}
+
+async function copyNewKey() {
+  if (window.__lastNewKey) {
+    try {
+      await navigator.clipboard.writeText(window.__lastNewKey);
+      toast('已复制 API Key', 'ok');
+    } catch (e) { toast('复制失败: ' + e.message, 'err'); }
+  }
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('已复制', 'ok');
+  } catch (e) { toast('复制失败', 'err'); }
+}
+
+async function toggleKey(key, enabled) {
+  try {
+    const r = await fetch('/admin/api/keys/toggle', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({key, enabled}),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      toast(enabled ? '已启用' : '已禁用', 'ok');
+      loadKeys();
+    } else {
+      toast(d.error || '操作失败', 'err');
+    }
+  } catch (e) { toast('网络错误', 'err'); }
+}
+
+async function deleteKey(key, name) {
+  if (!confirm(`确定删除 API Key "${name}"？\n使用此 key 的客户端会立刻失去访问权限。`)) return;
+  try {
+    const r = await fetch('/admin/api/keys', {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({key}),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      toast('已删除', 'ok');
+      loadKeys();
+      loadOverview();
+    } else {
+      toast(d.error || '删除失败', 'err');
+    }
+  } catch (e) { toast('网络错误', 'err'); }
 }
 
 checkAuth();

@@ -143,16 +143,11 @@ func ValidateAuthToken(token string) bool {
 	if Cfg.SkipAuthToken {
 		return true
 	}
-	if len(Cfg.AuthTokens) == 0 {
-		LogWarn("AUTH_TOKEN not configured, rejecting all requests")
+	if len(Cfg.AuthTokens) == 0 && len(GetApiKeyManager().List()) == 0 {
+		LogWarn("既未配置 AUTH_TOKEN 也没有用户创建的 API Key，拒绝所有请求")
 		return false
 	}
-	for _, t := range Cfg.AuthTokens {
-		if t == token {
-			return true
-		}
-	}
-	return false
+	return ValidateAnyApiKey(token)
 }
 
 var backupTokenIndex int
